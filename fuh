@@ -1,0 +1,17 @@
+cp -r /home/l0wkey/.config/nvim/ . 
+
+cp -r /home/l0wkey/.config/niri/ .
+
+cp -r /home/l0wkey/.config/ironbar/ .
+
+cp -r /home/l0wkey/shit/DOTFILESfrfr/kitty/.config/kitty/ . 
+
+read -p "commit message:" message
+
+git add . 
+
+git commit -m "$message"
+
+git push 
+
+

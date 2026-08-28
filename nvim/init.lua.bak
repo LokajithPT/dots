@@ -1,0 +1,482 @@
+-- ========================
+-- Lazy.nvim Bootstrap
+-- ========================
+
+vim.g.mapleader = " "
+vim.g.maplocalleader = " "
+
+local lazypath = vim.fn.stdpath("data") .. "/lazy/lazy.nvim"
+if not vim.loop.fs_stat(lazypath) then
+    vim.fn.system({
+        "git",
+        "clone",
+        "--filter=blob:none",
+        "https://github.com/folke/lazy.nvim.git",
+        lazypath,
+    })
+end
+vim.opt.rtp:prepend(lazypath)
+
+-- =========================
+-- General Settings
+-- =========================
+vim.opt.termguicolors = true
+vim.opt.background = "dark"
+vim.wo.relativenumber = true
+vim.opt.clipboard = "unnamedplus"
+vim.opt.expandtab = true
+vim.opt.shiftwidth = 2
+vim.opt.tabstop = 2
+vim.opt.softtabstop = 2
+vim.opt.scrolloff = 8 
+
+-- =========================
+-- Lazy-loaded Plugins
+-- =========================
+
+vim.g.rustaceanvim = {
+  server = {
+    default_settings = {
+      ['rust-analyzer'] = {
+        procMacro = { enable = true },
+        cargo = { allFeatures = false, features = {} },
+        checkOnSave = {command = "check" , allTargets = false,},
+        inlayHints = {enable = false,},
+
+        files = {
+          exclude = {
+            "**/target/**",
+            "**/.git/**",
+            "**/node_modules/**",
+          },
+
+          watcher = "server",
+        }
+      },
+    },
+  },
+}
+
+require("lazy").setup({
+  {
+    "3rd/image.nvim",
+    dependencies = { "vhyrro/luarocks.nvim" },
+    opts = {
+      backend = "kitty",
+      integrations = {
+        markdown = {
+          enabled = true,
+          clear_in_insert_mode = false,
+          download_remote_images = true,
+          only_render_image_at_cursor = false,
+          filetypes = { "markdown", "vimwiki" },
+        },
+        neorg = { enabled = true },
+      },
+      max_width = 100,
+      max_height = 12,
+      window_overlap_clear_enabled = true,
+    },
+  }, 
+
+  {
+    "folke/zen-mode.nvim",
+    opts = {
+      window = {
+        backdrop = 0.95,
+        width = 120,
+        options = {
+          signcolumn = "no",
+          number = false,
+          relativenumber = false,
+        },
+      },
+      plugins = {
+        options = {
+          enabled = true,
+          ruler = false,
+          showcmd = false,
+        },
+        twilight = { enabled = false },
+        gitsigns = { enabled = false },
+        tmux = { enabled = false }, 
+      },
+    }
+  },
+
+  {
+    "bluz71/vim-moonfly-colors",
+    name = "moonfly",
+    lazy = false,
+    priority = 1000,
+  },
+  {
+    dir = vim.fn.stdpath("config"),
+    name = "duo.nvim",
+    lazy = false,
+  }, 
+  {
+    "nomnivore/ollama.nvim",
+    dependencies = { "nvim-lua/plenary.nvim" },
+    config = function(_, opts) 
+      require("ollama").setup({
+        prompts = {
+          AnalyzeFile = {
+            prompt = "Analyze this file deeply:\n\n$file_content",
+            model = "gemma3:4b",
+          },
+        },
+      })
+    end,
+    keys = {
+      { "<leader>oo", ":<c-u>lua require('ollama').prompt()<cr>", desc = "ollama prompt", mode = { "n", "v" } },
+      { "<leader>oc", function() require("ollama").chat() end, desc = "ollama chat" },
+      {
+        "<leader>oa",
+        function()
+          local buf = vim.api.nvim_get_current_buf()
+          local lines = vim.api.nvim_buf_get_lines(buf, 0, -1, false)
+          local file = table.concat(lines, "\n")
+          require("ollama").prompt({ prompt = "Analyze this file deeply:\n\n" .. file })
+        end,
+        desc = "ollama analyze file",
+      },
+    },
+    opts = {
+      model = "gemma3:4b",
+      debounce = 200,
+      ui = { layout = "float", width = 0.7, height = 0.85 },
+    }
+  },
+  { "folke/snacks.nvim", opts = { input = {}, picker = {}, terminal = {} } },
+  {
+    "gisketch/triforce.nvim",
+    dependencies = { "nvzone/volt" },
+    config = function()
+      require("triforce").setup({
+        keymap = { show_profile = "<leader>tp" },
+      })
+    end,
+  }, 
+  {
+      "mattn/emmet-vim",
+      config = function()
+          vim.g.user_emmet_expandabbr_key = "<C-y>"
+          vim.g.user_emmet_settings = { jsx = { self_closing_tag = true } }
+      end,
+  },
+  {
+    "saghen/blink.cmp",
+    version = "*",
+    dependencies = { "rafamadriz/friendly-snippets" },
+    opts = {
+      keymap = {
+        preset = "default",
+        ["<C-Space>"] = { "show", "hide" },
+        ["<CR>"] = { "accept", "fallback" },
+        ["<C-j>"] = { "select_next", "fallback" },
+        ["<C-k>"] = { "select_prev", "fallback" },
+      },
+      sources = { default = { "lsp", "path", "buffer" } },
+      completion = { documentation = { auto_show = true } },
+    },
+  },
+  { "ThePrimeagen/vim-be-good", cmd = "VimBeGood" },
+  { "windwp/nvim-ts-autotag", dependencies = "nvim-treesitter/nvim-treesitter", config = function() require("nvim-ts-autotag").setup() end },
+  {
+      "nvim-telescope/telescope.nvim",
+      dependencies = { "nvim-lua/plenary.nvim" },
+      config = function() 
+          local telescope = require("telescope")
+          telescope.setup{
+              defaults = { file_ignore_patterns = { ".git/", "node_modules/" } },
+          }
+          telescope.load_extension("fzf")
+      end,
+  },
+  { "nvim-telescope/telescope-fzf-native.nvim", build = "make" },
+  { "nvim-tree/nvim-tree.lua", dependencies = { "nvim-tree/nvim-web-devicons" }, config = function() require("nvim-tree").setup {} end },
+  {
+    "akinsho/bufferline.nvim",
+    version = "*",
+    dependencies = { "nvim-tree/nvim-web-devicons" },
+    opts = {
+      options = {
+        mode = "buffers",
+        show_close_icon = false,
+        show_buffer_close_icons = false,
+        show_tab_indicators = false,
+        color_icons = true,
+        diagnostics = "nvim_lsp",
+        separator_style = "thin",
+        sort_by = "insert_at_end",
+      },
+    },
+  },
+  { "lewis6991/gitsigns.nvim", config = function() require("gitsigns").setup{} end },
+  { "MunifTanjim/nui.nvim" },
+  {
+    "yetone/avante.nvim",
+    dependencies = { "MunifTanjim/nui.nvim", "nvim-lua/plenary.nvim" },
+    config = function()
+      require("avante").setup({ provider = "ollama", url = "http://localhost:11434", model = "gemma3:4b" })
+    end,
+  },
+  { "akinsho/toggleterm.nvim", version = "*", config = function() 
+      require("toggleterm").setup({ direction = "float", shell = "fish" })
+  end },
+  { "smoka7/hop.nvim", config = function() require("hop").setup{} end },
+  { "EdenEast/nightfox.nvim" },
+  { "nvimtools/none-ls.nvim", dependencies = "nvim-lua/plenary.nvim", config = function() 
+      local null_ls = require("null-ls")
+      null_ls.setup({
+            sources = {
+              null_ls.builtins.formatting.prettier,
+              null_ls.builtins.formatting.clang_format,
+            },
+      })
+  end },
+  { "mbbill/undotree", config = function() vim.keymap.set("n", "<leader>u", vim.cmd.UndotreeToggle) end },
+  { "mfussenegger/nvim-dap", dependencies = { "nvim-neotest/nvim-nio" } },
+  { "rcarriga/nvim-dap-ui", dependencies = { "mfussenegger/nvim-dap" } },
+  { "folke/noice.nvim", dependencies = { "MunifTanjim/nui.nvim" } },
+  { "MeanderingProgrammer/render-markdown.nvim", dependencies = { "nvim-treesitter/nvim-treesitter" } },
+  { "mrcjkb/rustaceanvim", version = "^4", ft = { "rust" } },
+
+  {
+    "williamboman/mason.nvim",
+    dependencies = { 
+      "williamboman/mason-lspconfig.nvim", 
+      "neovim/nvim-lspconfig",
+    },
+    config = function() 
+      require("mason").setup()
+      
+      local capabilities = require('blink.cmp').get_lsp_capabilities()
+      local lspconfig = require("lspconfig")
+
+      require("mason-lspconfig").setup({ 
+        ensure_installed = { "clangd", "gopls", "pyright", "ts_ls", "cssls", "html", "jsonls", "tailwindcss", "eslint" },
+        handlers = {
+          function(server_name)
+            if server_name == "rust-analyzer" then return end
+
+            lspconfig[server_name].setup({
+              capabilities = capabilities,
+            })
+          end,
+        }
+      })
+    end,
+  },
+
+  {
+    "echasnovski/mini.nvim",
+    event = "VeryLazy",
+    config = function()
+      require("mini.pairs").setup()
+      require("mini.surround").setup()
+      require("mini.comment").setup()
+      require("mini.icons").setup()
+      require("mini.indentscope").setup({
+        draw = {
+          animation = require("mini.indentscope").gen_animation.none(),
+        }, 
+      })
+      -- require("mini.trailspace").setup()
+      require("mini.move").setup()
+      require("mini.splitjoin").setup()
+      require("mini.bufremove").setup()
+      require("mini.animate").setup({
+        scroll = { enable = false },
+        cursor = { enable = false },
+      })
+      require("mini.hipatterns").setup()
+      require("mini.misc").setup()
+    end,
+  },
+
+  {
+      "ThePrimeagen/harpoon",
+      branch = "harpoon2",
+      dependencies = { "nvim-lua/plenary.nvim" },
+      config = function() 
+          local harpoon = require("harpoon")
+          harpoon:setup()
+          vim.keymap.set("n", "<leader>a", function() harpoon:list():add() end)
+          vim.keymap.set("n", "<leader>s", function() harpoon.ui:toggle_quick_menu(harpoon:list()) end)
+          vim.keymap.set("n", "<C-h>", function() harpoon:list():prev() end)
+          vim.keymap.set("n", "<C-j>", function() harpoon:list():next() end)
+      end,
+  },
+  {
+      "nvim-lualine/lualine.nvim",
+      config = function() require("lualine").setup({ options = { theme = "auto", globalstatus = true } }) end,
+  },
+  {
+      "goolord/alpha-nvim",
+      config = function() 
+          local alpha = require("alpha")
+          local dashboard = require("alpha.themes.dashboard")
+          alpha.setup(dashboard.config)
+      end,
+  },
+
+
+
+
+  {
+    "folke/trouble.nvim",
+    opts = {},
+    keys = {
+      { "<leader>xw", function() require("trouble").toggle("workspace_diagnostics") end, desc = "Workspace diagnostics" },
+      { "<leader>xd", function() require("trouble").toggle("document_diagnostics") end, desc = "Document diagnostics" },
+    },
+  },
+
+  {
+    "nvim-treesitter/nvim-treesitter", 
+    build = ":TSUpdate", 
+    config = function() 
+        require("nvim-treesitter").setup{ highlight = { enable = true }, ensure_installed = { "lua","python","c","cpp","javascript","typescript","tsx","jsx","html","css" } }
+    end 
+  },
+})
+
+-- =========================
+-- Transparency Logic (The Fix)
+-- =========================
+local M = {}
+local original_scheme = "moonfly"
+M.toggle = true 
+
+M.transparency_on = function() 
+    local groups = {
+        "Normal", "NormalNC", "VertSplit", "StatusLine", "StatusLineNC",
+        "Pmenu", "TelescopeNormal", "TelescopeBorder", "NvimTreeNormal",
+        "Terminal", "ToggleTerm", "SignColumn", "LineNr", "CursorLineNr",
+        "EndOfBuffer", "MsgArea", "NormalFloat", "FloatBorder" , "ZenBg"
+    }
+    for _, group in ipairs(groups) do
+        vim.api.nvim_set_hl(0, group, { bg = "NONE", ctermbg = "NONE" })
+    end
+end
+
+vim.api.nvim_create_autocmd("ColorScheme", {
+    callback = function()
+        if M.toggle then M.transparency_on() end
+    end,
+})
+
+vim.api.nvim_create_user_command("TransToggle", function() 
+    M.toggle = not M.toggle
+    if M.toggle then 
+        M.transparency_on()
+        print("Transparency ON")
+    else 
+        vim.cmd("colorscheme " .. original_scheme)
+        print("Transparency OFF")
+    end
+end, {})
+
+-- =========================
+-- Additional Key Mappings
+-- =========================
+local opts = { noremap=true, silent=true }
+vim.keymap.set("n", "<C-n>", ":NvimTreeToggle<CR>", opts)
+vim.keymap.set("n", "<leader>tt", ":TransToggle<CR>", opts)
+vim.keymap.set("n", "f", ":HopChar1<CR>", opts)
+vim.keymap.set("n", "F", ":HopWord<CR>", opts)
+vim.keymap.set("n", "<C-p>", function() require("telescope.builtin").find_files() end, opts)
+vim.keymap.set("n", "<C-b>", function() require("telescope.builtin").buffers() end, opts)
+vim.keymap.set("n", "<leader>g", function() require("telescope.builtin").live_grep() end, opts)
+vim.keymap.set("n", "<leader>p", ":Telescope commands<CR>", opts)
+vim.keymap.set("n", "<leader>cs", function() require("telescope.builtin").lsp_document_symbols() end, opts)
+vim.keymap.set("n", "<leader>cr", function() require("telescope.builtin").lsp_references() end, opts)
+local function goto_first()
+  local handler = function(err, result, ctx)
+    if err then return end
+    if type(result) ~= "table" or vim.tbl_isempty(result) then
+      vim.notify("No definition found", vim.log.levels.WARN)
+      return
+    end
+    local client = vim.lsp.get_client_by_id(ctx.client_id)
+    local offset_encoding = client and client.offset_encoding or "utf-16"
+    local loc = result[1]
+    if type(loc) == "table" and loc.targetUri then
+      loc = { uri = loc.targetUri, range = loc.targetRange }
+    end
+    vim.lsp.util.jump_to_location(loc, offset_encoding)
+  end
+  vim.lsp.buf_request(0, "textDocument/definition", vim.lsp.util.make_position_params(), handler)
+end
+vim.keymap.set("n", "gd", goto_first, opts)
+vim.keymap.set("n", "gD", goto_first, opts)
+vim.keymap.set("n", "<C-o>", "<C-o>", opts)
+vim.keymap.set("n", "<leader>z", ":ZenMode<CR>", opts)
+vim.keymap.set("n", "<C-f>", "<Cmd>BufferLineCycleNext<CR>", opts)
+vim.keymap.set("n", "<C-Tab>", "<Cmd>BufferLineCycleNext<CR>", opts)
+vim.keymap.set("n", "<C-S-Tab>", "<Cmd>BufferLineCyclePrev<CR>", opts)
+vim.keymap.set("n", "<leader>t", "<Cmd>BufferLinePick<CR>", opts)
+vim.keymap.set("n", "<leader>bd", function() require("mini.bufremove").delete(0, false) end, opts)
+vim.keymap.set("n", "<C-w>w", function() require("mini.bufremove").delete(0, false) end, opts)
+
+-- =========================
+-- File Monitoring & Autocmds
+-- =========================
+vim.opt.autoread = true
+
+vim.api.nvim_create_autocmd({ "FocusGained", "BufEnter", "CursorHold", "CursorHoldI" }, {
+    callback = function()
+        if vim.fn.getcmdwintype() == '' then
+            vim.cmd('checktime')
+        end
+    end,
+})
+
+vim.api.nvim_create_autocmd("FileChangedShellPost", {
+    callback = function()
+        vim.api.nvim_echo({ { "File changed on disk. Buffer reloaded.", "WarningMsg" } }, true, {})
+    end,
+})
+
+-- Force Rust local buffer sizing
+vim.api.nvim_create_autocmd("FileType", {
+  pattern = "rust",
+  callback = function()
+    vim.opt_local.shiftwidth = 2
+    vim.opt_local.tabstop = 2
+    vim.opt_local.softtabstop = 2
+  end,
+})
+
+-- Set fallback commentstrings for languages where Neovim leaves it empty
+vim.api.nvim_create_autocmd("FileType", {
+  pattern = { "c", "cpp", "rust", "go" },
+  callback = function()
+    vim.bo.commentstring = "// %s"
+  end,
+})
+
+vim.opt.updatetime = 300 
+vim.opt.swapfile = false
+
+-- =========================
+-- Initialization
+-- =========================
+vim.cmd("colorscheme moonfly")
+
+-- Diagnostics setup configuration parameters
+vim.diagnostic.config({
+  underline = false,
+  virtual_text = {
+    severity = { min = vim.diagnostic.severity.WARN },
+  },
+  signs = true,
+})
+
+vim.schedule(function()
+    if M.toggle then
+        M.transparency_on()
+    end
+end)
