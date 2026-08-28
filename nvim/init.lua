@@ -7,5 +7,6 @@ vim.opt.clipboard = 'unnamedplus'
 vim.keymap.set({ 'n','v' }, 'y', '"+y', { noremap = true, silent = true })
 vim.keymap.set({ 'n','v' }, 'Y', '"+Y', { noremap = true, silent = true })
 
--- Toggle NvimTree with <C-n>
-vim.keymap.set('n','<C-n>',':NvimTreeToggle<CR>',{noremap=true,silent=true})
+-- Toggle NvimTree
+vim.keymap.set('n', '<C-n>', function() require('nvim-tree.api').tree.toggle() end, { noremap = true, silent = true, desc = 'Toggle NvimTree' })
+vim.keymap.set('n', '<leader>e', function() require('nvim-tree.api').tree.toggle() end, { noremap = true, silent = true, desc = 'Toggle NvimTree' })
