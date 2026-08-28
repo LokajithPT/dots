@@ -1,14 +1,15 @@
-# Copy config directories into subfolders if they exist, excluding .git
+# Copy config directories into subfolders (cleaning first)
+rm -rf ./nvim ./niri ./ironbar ./kitty
 if [ -d "/home/l0wkey/.config/nvim" ]; then
-  rsync -a --exclude='.git' "/home/l0wkey/.config/nvim"/. "./nvim/"
+  cp -a "/home/l0wkey/.config/nvim"/. "./nvim/"
 fi
 if [ -d "/home/l0wkey/.config/niri" ]; then
-  rsync -a --exclude='.git' "/home/l0wkey/.config/niri"/. "./niri/"
+  cp -a "/home/l0wkey/.config/niri"/. "./niri/"
 fi
 if [ -d "/home/l0wkey/.config/ironbar" ]; then
-  rsync -a --exclude='.git' "/home/l0wkey/.config/ironbar"/. "./ironbar/"
+  cp -a "/home/l0wkey/.config/ironbar"/. "./ironbar/"
 fi
-rsync -a --exclude='.git' "/home/l0wkey/shit/DOTFILESfrfr/kitty/.config/kitty"/. "./kitty/"
+cp -a "/home/l0wkey/shit/DOTFILESfrfr/kitty/.config/kitty"/. "./kitty/"
 
 read -p "commit message:" message
 
