@@ -1,0 +1,46 @@
+{
+  "icon_theme": "Papirus",
+  "position": "top",
+  "height": 32,
+  "start": [
+    {
+      "type": "workspaces",
+      "sort": "index"
+    }
+  ],
+  "center": [],
+  "end": [
+    {
+      "type": "battery",
+      "show_icon": false,
+      "format": "{state}: {percentage}%",
+      "show_if": "ls /sys/class/power_supply/ | grep --quiet '^BAT'"
+    },
+    {
+      "type": "sys_info",
+      "format": [
+        "{cpu_percent}% 󰍛",
+        "{memory_used} / {memory_total} GB 󰉾"
+      ],
+      "interval": {
+        "cpu": 1,
+        "memory": 2
+      }
+    },
+    {
+      "type": "network_manager",
+      "icon_size": 16
+    },
+    {
+      "type": "bluetooth",
+      "icon_size": 16
+    },
+    {
+      "type": "tray"
+    },
+    {
+      "type": "clock",
+      "format": "%a %d %b %H:%M"
+    }
+  ]
+}
