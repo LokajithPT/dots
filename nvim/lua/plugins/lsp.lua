@@ -46,8 +46,15 @@ return {
             register_server("rust_analyzer", {
               settings = {
                 ["rust-analyzer"] = {
-                  cargo = { allFeatures = true },
-                  procMacro = { enable = true },
+                  -- Lower memory: don't analyze all feature combos
+                  cargo = {
+                    allFeatures = false,
+                    -- Skip build scripts and generated OUT_DIR artifacts (big memory savers)
+                    loadOutDirsFromCheck = false,
+                    buildScripts = { enable = false },
+                  },
+                  -- Proc-macro expansion is expensive in memory; disable if not needed
+                  procMacro = { enable = false },
                   checkOnSave = { command = "clippy" },   -- run clippy on save
                   files = {
                     exclude = {
@@ -56,7 +63,9 @@ return {
                       "**/node_modules/**",
                     },
                   },
-                  diagnostics = { enable = true, experimental = { enable = true } },
+                  diagnostics = { enable = true, experimental = { enable = false } },
+                  -- Smaller query cache (lower memory, slightly slower)
+                  lru = { capacity = 1024 },
                 },
               },
             })
@@ -93,6 +102,11 @@ return {
 
         vim.keymap.set("n", "gr", vim.lsp.buf.references, opts)
         vim.keymap.set("n", "K", vim.lsp.buf.hover, opts)
+
+        -- Open document symbols in a Telescope window instead of the bottom quickfix pane
+        vim.keymap.set("n", "gO", function()
+          require("telescope.builtin").lsp_document_symbols()
+        end, { buffer = event.buf, desc = "Document symbols (Telescope)" })
       end,
     })
 
