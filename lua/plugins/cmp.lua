@@ -60,14 +60,26 @@ return {
       end,
     })
 
-    -- Optional: Highlight the selected item in the menu
+    -- Cmdline completion: / searches from buffer, : commands via cmp-cmdline
     cmp.setup.cmdline('/', {
       mapping = cmp.mapping.preset.cmdline(),
-      source = cmp.config.sources({ { name = 'buffer' } })
+      sources = cmp.config.sources({ { name = 'buffer' } }),
     })
     cmp.setup.cmdline(':', {
       mapping = cmp.mapping.preset.cmdline(),
-      source = cmp.config.sources({ { name = 'path' } })
+      -- path: file completion; cmdline: actual :commands (from cmp-cmdline).
+      -- NOTE: the key must be `sources` (plural) — the old `source` key was
+      -- silently ignored, so :command completion never worked.
+      sources = cmp.config.sources(
+        { { name = 'path' } },
+        { { name = 'cmdline' } }
+      ),
     })
+
+    -- nvim-autopairs: close/expand pairs when a completion is confirmed
+    local ap_ok, ap_cmp = pcall(require, "nvim-autopairs.completion.cmp")
+    if ap_ok then
+      cmp.event:on('confirm_done', ap_cmp.on_confirm_done())
+    end
   end,
 }

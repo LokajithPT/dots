@@ -15,67 +15,84 @@ return {
   -- The function that lazy.nvim will call after the plugin is installed
   config = function()
     -----------------------------------------------------------------
-    -- Helper: register a server with the native vim.lsp.config API
+    -- Capabilities: give every server the nvim-cmp set so completions and
+    -- snippets show up in the completion menu.
+    -----------------------------------------------------------------
+    local cmp_ok, cmp_lsp = pcall(require, "cmp_nvim_lsp")
+    local capabilities = cmp_ok and cmp_lsp.default_capabilities()
+      or vim.lsp.protocol.make_client_capabilities()
+
+    -----------------------------------------------------------------
+    -- Helper: register a server with the native Neovim 0.11+ LSP API.
+    -- `vim.lsp.config(name, cfg)` deep-merges over the defaults shipped by
+    -- nvim-lspconfig, then `vim.lsp.enable(name)` activates it.
     -----------------------------------------------------------------
     local function register_server(name, cfg)
       cfg = cfg or {}
-      vim.lsp.config.setup(name, {
-        cmd = cfg.cmd,
-        settings = cfg.settings,
-        init_options = cfg.init_options,
-        flags = cfg.flags,
-        capabilities = cfg.capabilities or vim.lsp.protocol.make_client_capabilities(),
-        on_attach = cfg.on_attach,
-      })
+      vim.lsp.config(name, vim.tbl_deep_extend("force", { capabilities = capabilities }, cfg))
+      vim.lsp.enable(name)
     end
 
     -----------------------------------------------------------------
     -- Mason – ensure the required LSP servers are installed
+    -- (setup is done in mason.lua, don't call setup() again here to preserve ui.border)
     -----------------------------------------------------------------
-    require("mason").setup()
     local mason_lspconfig = require("mason-lspconfig")
 
     mason_lspconfig.setup({
-      ensure_installed = { "lua_ls", "rust_analyzer" },
+      ensure_installed = { "lua_ls", "rust_analyzer", "clangd" },
 
-      handlers = {
-        -- Handler for every server not explicitly overridden
-        function(server_name)
-          if server_name == "rust_analyzer" then
-            -- ====================== Rust Analyzer (with clippy) ======================
-            register_server("rust_analyzer", {
-              settings = {
-                ["rust-analyzer"] = {
-                  cargo = { allFeatures = true },
-                  procMacro = { enable = true },
-                  checkOnSave = { command = "clippy" },   -- run clippy on save
-                  files = {
-                    exclude = {
-                      "**/target/**",
-                      "**/.git/**",
-                      "**/node_modules/**",
-                    },
-                  },
-                  diagnostics = { enable = true, experimental = { enable = true } },
-                },
-              },
-            })
-          else
-            -- ====================== Default handler for other servers ======================
-            register_server(server_name, {})
-          end
-        end,
+      -- Mason only *installs* these; enabling is done manually via
+      -- register_server() below. Automatic enabling would also switch on
+      -- every other installed package with an lspconfig mapping (bacon-ls,
+      -- harper-ls, eslint, ...), which caused duplicate/stray diagnostics.
+      -- dartls is owned by flutter-tools.nvim anyway.
+      automatic_enable = false,
+    })
 
-        -- Explicit handler for lua_ls (keeps config tidy)
-        ["lua_ls"] = function()
-          register_server("lua_ls", {
-            settings = {
-              Lua = {
-                diagnostics = { globals = { "vim" } },
-              },
+    -- ====================== Lua ======================
+    register_server("lua_ls", {
+      settings = {
+        Lua = {
+          diagnostics = { globals = { "vim" } },
+        },
+      },
+    })
+
+    -- ====================== Rust Analyzer ======================
+    -- Stock settings: proc-macros and build scripts enabled so derives
+    -- (serde, tokio, thiserror, ...) and build.rs cfgs resolve correctly.
+    register_server("rust_analyzer", {
+      settings = {
+        ["rust-analyzer"] = {
+          -- Run `cargo check` on save (plain rustc diagnostics, no clippy).
+          -- Note: checkOnSave is a boolean; the command is set via check.command.
+          checkOnSave = true,
+          check = { command = "check" },
+          files = {
+            exclude = {
+              "**/target/**",
+              "**/.git/**",
+              "**/node_modules/**",
             },
-          })
-        end,
+          },
+        },
+      },
+    })
+
+    -- ====================== Clangd (C/C++ for ESP32) ======================
+    register_server("clangd", {
+      cmd = {
+        "clangd",
+        "--background-index",
+        "--clang-tidy",
+        "--header-insertion=never",
+        "--completion-style=detailed",
+        "--query-driver=/home/l0wkey/.platformio/packages/toolchain-xtensa-esp32s3/bin/xtensa-esp32s3-elf-g*,/home/l0wkey/.platformio/packages/toolchain-riscv32-esp/bin/riscv32-esp-elf-g*",
+      },
+      init_options = {
+        -- Use compile_commands.json generated by PlatformIO (pio run -t compiledb)
+        compilationDatabasePath = ".",
       },
     })
 
@@ -86,13 +103,46 @@ return {
       callback = function(event)
         local opts = { buffer = event.buf }
 
-        -- Open the definition in a vertical split (no floating preview)
+        -- Definition in the current window
         vim.keymap.set("n", "gd", function()
-          vim.lsp.buf.definition({ selection = "split" })
-        end, opts)
+          vim.lsp.buf.definition()
+        end, { buffer = event.buf, desc = "LSP definition" })
 
         vim.keymap.set("n", "gr", vim.lsp.buf.references, opts)
         vim.keymap.set("n", "K", vim.lsp.buf.hover, opts)
+
+        -- Code actions / rename ("]d"/"[d" for diagnostics are builtin)
+        vim.keymap.set({ "n", "v" }, "<leader>ca", vim.lsp.buf.code_action,
+          { buffer = event.buf, desc = "LSP code action" })
+        vim.keymap.set("n", "<leader>rn", vim.lsp.buf.rename,
+          { buffer = event.buf, desc = "LSP rename symbol" })
+
+        -- Diagnostics for the current line in a float
+        vim.keymap.set("n", "gl", vim.diagnostic.open_float,
+          { buffer = event.buf, desc = "Line diagnostics" })
+
+        -- Open document symbols in a Telescope window instead of the bottom quickfix pane
+        vim.keymap.set("n", "gO", function()
+          require("telescope.builtin").lsp_document_symbols()
+        end, { buffer = event.buf, desc = "Document symbols (Telescope)" })
+      end,
+    })
+
+    -----------------------------------------------------------------
+    -- Format on save: Rust (rustfmt via rust-analyzer).
+    -- C/C++ deliberately left out: clang-format without a .clang-format
+    -- file would reflow the whole file with LLVM style on first save.
+    -----------------------------------------------------------------
+    vim.api.nvim_create_autocmd("BufWritePre", {
+      pattern = "*.rs",
+      callback = function(args)
+        vim.lsp.buf.format({
+          bufnr = args.buf,
+          timeout_ms = 2000,
+          filter = function(client)
+            return client.name == "rust_analyzer"
+          end,
+        })
       end,
     })
 

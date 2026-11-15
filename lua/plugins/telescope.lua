@@ -1,7 +1,10 @@
 
 
 return {
-    "git@github.com:nvim-telescope/telescope.nvim.git",
+    -- Plain slug: the old SSH URL (git@github.com:...) failed to clone/update
+    -- on any machine without GitHub SSH keys. Same resolved plugin name, so
+    -- the already-installed copy is reused.
+    "nvim-telescope/telescope.nvim",
 
     keys = {
         {
@@ -10,7 +13,7 @@ return {
            desc = "find files ",
         },
         {
-            "<C-f>",
+            "<leader>fg",
             "<cmd>Telescope live_grep<cr>",
             desc = "live grep",
         },
@@ -24,5 +27,10 @@ return {
             }, 
             sorting_strategy = "ascending",
         }
-    }
+    },
+
+    config = function(_, opts)
+        require("telescope").setup(opts)
+        require("telescope").load_extension("harpoon")
+    end,
 }
